@@ -155,14 +155,17 @@ function showSkeleton(n = 2) {
 }
 
 // ---------- detect ----------
+let lastUrl = "";        // remembered so "import from browser" can re-run detection
+let importBrowser = "";  // when set, cookies come from the user's real browser
 async function runDetect(url) {
   if (!url) return;
+  lastUrl = url;
   $("log").textContent = "";
   showSkeleton();
   setStatus("Detecting — trying yt-dlp, then the browser fallback. Up to ~20s on tricky sites.", "busy");
   $("detectBtn").disabled = true;
   try {
-    const res = await window.api.resolve(url);
+    const res = await window.api.resolve(url, importBrowser || undefined);
     handleResolveResult(res);
   } catch (e) {
     $("sources").innerHTML = "";
@@ -187,15 +190,14 @@ async function runManual() {
   }
 }
 
+function siteOf(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } }
+
 function handleResolveResult(res) {
   if (!res.ok) { $("sources").innerHTML = ""; setStatus("Could not resolve: " + res.error, "error"); return; }
-  if (res.kind === "auth") { showAuthPrompt(res.site, res.loginUrl); return; }
+  if (res.kind === "auth") { showAuthPrompt(res.site, res.loginUrl, true); return; }
   if (!res.sources || !res.sources.length) {
-    $("sources").innerHTML = "";
-    setStatus(
-      "No source found. The site may need a manual stream URL — open it, find the .m3u8 in DevTools → Network, and paste it under Advanced.",
-      "error"
-    );
+    // might be login-walled (esp. if a partial session confused detection) — offer sign-in + import
+    showAuthPrompt(siteOf(lastUrl), null, false);
     return;
   }
   const kindMsg = {
@@ -208,8 +210,16 @@ function handleResolveResult(res) {
 }
 
 // ---------- auth prompt ----------
-function showAuthPrompt(site, loginUrl) {
-  setStatus(`${site} needs you to sign in before it will share this video.`, "error");
+// isAuth=true → site clearly needs login (show Sign in). Either way we offer
+// "import from your browser" (the reliable path for TikTok etc. that block
+// embedded logins or rate-limit repeated attempts).
+function showAuthPrompt(site, loginUrl, isAuth) {
+  setStatus(
+    isAuth
+      ? `${site} needs you to sign in before it will share this video.`
+      : `No source found for ${site}. If it needs an account, sign in or import your browser session below.`,
+    "error"
+  );
   const wrap = $("sources");
   wrap.innerHTML = "";
   const card = el("div", "source-card auth-card");
@@ -220,13 +230,31 @@ function showAuthPrompt(site, loginUrl) {
       </svg>
     </div>
     <div class="source-meta">
-      <div class="source-title">Sign in to ${esc(site)}</div>
-      <div class="source-sub"><span>This video is private or login-only. Sign in once and it'll download automatically next time.</span></div>
+      <div class="source-title">${isAuth ? "Sign in to " + esc(site) : "Needs an account?"}</div>
+      <div class="source-sub"><span>Sign in here, or if you're <b>already signed in on your browser</b> import that session (best for TikTok):</span></div>
+      <div class="auth-import">
+        <span>Import login from</span>
+        <select id="importSel">
+          <option value="">choose browser…</option>
+          <option value="firefox">Firefox (recommended)</option>
+          <option value="chrome">Chrome (close it first)</option>
+          <option value="edge">Edge (close it first)</option>
+          <option value="brave">Brave (close it first)</option>
+          <option value="opera">Opera (close it first)</option>
+        </select>
+      </div>
     </div>
     <div class="source-actions"></div>`;
   const btn = el("button", "primary", "Sign in");
   btn.onclick = () => window.api.openAccounts(loginUrl || "https://" + site);
   card.querySelector(".source-actions").appendChild(btn);
+  card.querySelector("#importSel").onchange = (e) => {
+    const b = e.target.value;
+    if (!b) return;
+    importBrowser = b;
+    setStatus(`Importing your ${b} session and retrying…`, "busy");
+    runDetect(lastUrl);
+  };
   wrap.appendChild(card);
 }
 
@@ -281,6 +309,7 @@ async function startDownload(src, q) {
     fmt: q.fmt,
     audio: !!q.audio,
     title: src.title,
+    importBrowser: importBrowser || undefined,
   });
   addQueueItem(id, title || src.title, q.label);
 }

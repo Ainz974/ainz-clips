@@ -42,7 +42,7 @@ function uniquePath(dir, base, ext) {
 
 // opts: { id, target, referer, fmt, audio, outDir, cookiesFile, title, onEvent }
 function start(opts) {
-  const { id, target, referer, fmt, audio, outDir, cookiesFile, title, onEvent } = opts;
+  const { id, target, referer, fmt, audio, outDir, cookiesFile, cookiesBrowser, title, onEvent } = opts;
   const ext = audio ? "mp3" : "mp4";
   const outPath = uniquePath(outDir, sanitize(title), ext);
   const args = [
@@ -67,7 +67,8 @@ function start(opts) {
       "--downloader-args", "aria2c:-x16 -s16 -k1M -j16 --summary-interval=1 --console-log-level=warn"
     );
   }
-  if (cookiesFile) args.push("--cookies", cookiesFile);
+  if (cookiesBrowser) args.push("--cookies-from-browser", cookiesBrowser);
+  else if (cookiesFile) args.push("--cookies", cookiesFile);
   if (referer) args.push("--referer", referer);
   if (audio) {
     args.push("-x", "--audio-format", "mp3", "--audio-quality", "0");

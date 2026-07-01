@@ -3,8 +3,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("api", {
-  resolve: (url) => ipcRenderer.invoke("resolve", url),
-  resolveManual: (url, referer) => ipcRenderer.invoke("resolve-manual", { url, referer }),
+  resolve: (url, importBrowser) => ipcRenderer.invoke("resolve", url, importBrowser),
+  resolveManual: (url, referer, importBrowser) => ipcRenderer.invoke("resolve-manual", { url, referer, importBrowser }),
   download: (job) => ipcRenderer.invoke("download", job),
   cancel: (id) => ipcRenderer.invoke("cancel", id),
   getConfig: () => ipcRenderer.invoke("get-config"),

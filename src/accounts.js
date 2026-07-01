@@ -118,7 +118,12 @@ function openAccounts(parent, startUrl) {
   accountsWin.on("closed", () => {
     view = null;
     accountsWin = null;
-    if (parent && !parent.isDestroyed()) parent.webContents.send("accounts-changed");
+    // parent may already be tearing down on app quit — guard webContents too
+    try {
+      if (parent && !parent.isDestroyed() && parent.webContents && !parent.webContents.isDestroyed()) {
+        parent.webContents.send("accounts-changed");
+      }
+    } catch (e) { /* window gone */ }
   });
   return accountsWin;
 }

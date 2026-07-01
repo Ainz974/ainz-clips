@@ -29,7 +29,7 @@ function hostOf(u) {
 }
 
 // Run yt-dlp -J and parse the JSON describing one video and its formats.
-function ytJson(url, { referer, signal, cookiesFile } = {}) {
+function ytJson(url, { referer, signal, cookiesFile, cookiesBrowser } = {}) {
   return new Promise((resolve, reject) => {
     const args = [
       "--js-runtimes", "node",
@@ -40,7 +40,9 @@ function ytJson(url, { referer, signal, cookiesFile } = {}) {
       "--no-warnings",
       "--user-agent", UA,
     ];
-    if (cookiesFile) args.push("--cookies", cookiesFile);
+    // import from the user's real browser (for sites the in-app login can't beat, e.g. TikTok)
+    if (cookiesBrowser) args.push("--cookies-from-browser", cookiesBrowser);
+    else if (cookiesFile) args.push("--cookies", cookiesFile);
     if (referer) args.push("--referer", referer);
     args.push(url);
     execFile(
@@ -196,7 +198,9 @@ function siteName(url) {
 async function resolve(url, log = () => {}, opts = {}) {
   const cookiesFile = opts.cookiesFile || null;
   const cookiesArr = opts.cookiesArr || null;
-  const ck = cookiesFile ? { cookiesFile } : {};
+  const cookiesBrowser = opts.cookiesBrowser || null;
+  // browser import wins (used for sites the in-app login can't handle)
+  const ck = cookiesBrowser ? { cookiesBrowser } : cookiesFile ? { cookiesFile } : {};
   let authHint = false;
   // Layer 1
   log("trying yt-dlp directly…");
@@ -273,7 +277,7 @@ async function resolve(url, log = () => {}, opts = {}) {
 // Layer 3: user pasted a stream/embed URL directly.
 async function resolveManual(url, referer, log = () => {}, opts = {}) {
   log("resolving pasted URL…");
-  const info = await ytJson(url, { referer: referer || undefined, cookiesFile: opts.cookiesFile || undefined });
+  const info = await ytJson(url, { referer: referer || undefined, cookiesFile: opts.cookiesFile || undefined, cookiesBrowser: opts.cookiesBrowser || undefined });
   return {
     kind: "manual",
     sources: [infoToSource("manual", url, referer || null, info)],

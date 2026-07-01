@@ -82,18 +82,25 @@ app.on("window-all-closed", () => {
 // ---- IPC --------------------------------------------------------------------
 const sendLog = (scope, line) => win && win.webContents.send("resolve-log", { scope, line });
 
-ipcMain.handle("resolve", async (_e, url) => {
+// cookies come from the in-app accounts partition, UNLESS the user chose to import
+// from a real browser (for sites the embedded login can't beat, e.g. TikTok)
+async function cookiesFor(url, importBrowser) {
+  if (importBrowser) return { cookiesBrowser: importBrowser };
+  return accounts.exportFor(url);
+}
+
+ipcMain.handle("resolve", async (_e, url, importBrowser) => {
   try {
-    const ck = await accounts.exportFor(url);
+    const ck = await cookiesFor(url, importBrowser);
     return { ok: true, ...(await resolver.resolve(url, (l) => sendLog("resolve", l), ck)) };
   } catch (e) {
     return { ok: false, error: e.message };
   }
 });
 
-ipcMain.handle("resolve-manual", async (_e, { url, referer }) => {
+ipcMain.handle("resolve-manual", async (_e, { url, referer, importBrowser }) => {
   try {
-    const ck = await accounts.exportFor(url);
+    const ck = await cookiesFor(url, importBrowser);
     return { ok: true, ...(await resolver.resolveManual(url, referer, (l) => sendLog("resolve", l), ck)) };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -102,7 +109,7 @@ ipcMain.handle("resolve-manual", async (_e, { url, referer }) => {
 
 ipcMain.handle("download", async (_e, job) => {
   const id = `job${++jobCounter}`;
-  const ck = await accounts.exportFor(job.target);
+  const ck = await cookiesFor(job.target, job.importBrowser);
   downloader.start({
     id,
     target: job.target,
@@ -112,6 +119,7 @@ ipcMain.handle("download", async (_e, job) => {
     title: job.title,
     outDir: config.outDir,
     cookiesFile: ck.cookiesFile,
+    cookiesBrowser: ck.cookiesBrowser,
     onEvent: (e) => win && win.webContents.send("download-event", e),
   });
   return { id, title: job.title };
