@@ -105,7 +105,11 @@ async function sniffPage(url, log = () => {}, cookiesArr = null) {
   } catch {
     throw new Error("Playwright not installed — browser fallback unavailable");
   }
-  const browser = await chromium.launch({ headless: true });
+  // Prefer Microsoft Edge (present on every Windows machine) so we don't have to
+  // bundle Playwright's Chromium; fall back to a bundled/installed Chromium.
+  const browser = await chromium
+    .launch({ headless: true, channel: "msedge" })
+    .catch(() => chromium.launch({ headless: true }));
   try {
     const ctx = await browser.newContext({ userAgent: UA });
     // act as the logged-in user so private / login-walled media is reachable
