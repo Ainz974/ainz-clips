@@ -19,7 +19,11 @@ function configPath() {
   return path.join(app.getPath("userData"), "config.json");
 }
 function loadConfig() {
-  const defaults = { outDir: path.join(ROOT, "downloads") };
+  // dev: <project>/downloads; packaged: the OS Downloads folder (project dir is read-only asar)
+  const defaultOut = app.isPackaged
+    ? path.join(app.getPath("downloads"), "AINZ Clips")
+    : path.join(ROOT, "downloads");
+  const defaults = { outDir: defaultOut };
   try {
     return { ...defaults, ...JSON.parse(fs.readFileSync(configPath(), "utf8")) };
   } catch {

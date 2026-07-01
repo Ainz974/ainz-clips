@@ -8,9 +8,10 @@
 
 const { execFile } = require("node:child_process");
 const path = require("node:path");
+const { binDir } = require("./paths");
 
 const ROOT = path.resolve(__dirname, "..");
-const YTDLP = path.join(ROOT, "bin", "yt-dlp.exe");
+const YTDLP = path.join(binDir(), "yt-dlp.exe");
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";

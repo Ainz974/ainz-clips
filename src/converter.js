@@ -7,10 +7,11 @@
 const { spawn, execFile } = require("node:child_process");
 const path = require("node:path");
 const fs = require("node:fs");
+const { binDir } = require("./paths");
 
-const ROOT = path.resolve(__dirname, "..");
-const FFMPEG = path.join(ROOT, "bin", "ffmpeg.exe");
-const FFPROBE = path.join(ROOT, "bin", "ffprobe.exe");
+const BIN = binDir();
+const FFMPEG = path.join(BIN, "ffmpeg.exe");
+const FFPROBE = path.join(BIN, "ffprobe.exe");
 
 // For each target: which source codecs can be COPIED into it (lossless+instant),
 // and the encoder to fall back to when a stream must be converted.

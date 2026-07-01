@@ -4,10 +4,11 @@ const { spawn } = require("node:child_process");
 const path = require("node:path");
 
 const fs = require("node:fs");
-const ROOT = path.resolve(__dirname, "..");
-const YTDLP = path.join(ROOT, "bin", "yt-dlp.exe");
-const FFMPEG = path.join(ROOT, "bin", "ffmpeg.exe");
-const ARIA2 = path.join(ROOT, "bin", "aria2c.exe");
+const { binDir } = require("./paths");
+const BIN = binDir();
+const YTDLP = path.join(BIN, "yt-dlp.exe");
+const FFMPEG = path.join(BIN, "ffmpeg.exe");
+const ARIA2 = path.join(BIN, "aria2c.exe");
 const HAS_ARIA2 = fs.existsSync(ARIA2);
 
 const UA =
