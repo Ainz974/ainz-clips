@@ -47,6 +47,7 @@ function createWindow() {
     height: 760,
     minWidth: 880,
     minHeight: 560,
+    icon: path.join(ROOT, "build", "icon.png"),
     backgroundColor: "#0d0f14",
     title: "AINZ Clips",
     webPreferences: {
