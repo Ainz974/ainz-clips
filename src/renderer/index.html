@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline';" />
+  <title>AINZ Clips</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3v11" /><path d="M7.5 10 12 14.5 16.5 10" />
+          <path d="M4 17v1.5A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V17" />
+        </svg>
+      </span>
+      <span class="name">AINZ Clips</span>
+    </div>
+    <div class="topbar-right">
+      <button class="mini accounts-btn" id="accountsBtn" title="Sign in to sites that need an account (saved on this device)">
+        <span class="acc-dot" id="accDot"></span>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="8" r="3.2" /><path d="M5 20a7 7 0 0 1 14 0" />
+        </svg>
+        <span id="accountsLabel">Accounts</span>
+      </button>
+      <div class="outdir" id="outdir" title="Change download folder">
+        <span class="outdir-label">Saving to</span>
+        <span class="outdir-path" id="outdirPath">…</span>
+        <button class="mini" id="changeDir">Change</button>
+        <button class="mini" id="openDir">Open</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- update banner -->
+    <div class="update-banner hidden" id="updateBanner">
+      <span class="ub-spark"></span>
+      <span id="updateText">A new version is available.</span>
+      <button class="ub-action hidden" id="updateInstall">Restart &amp; update</button>
+    </div>
+
+    <!-- accounts explainer -->
+    <div class="info-banner" id="accountsBanner">
+      <svg class="ib-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9" /><path d="M12 11v5" /><circle cx="12" cy="7.5" r="0.6" fill="currentColor" />
+      </svg>
+      <div class="ib-text">
+        <strong>Downloading from private or login-only sites?</strong>
+        <span>Some videos need an account — Instagram, private posts, age-restricted clips. Click <b>Accounts</b> (top right) to sign in once. It's saved on this device and used automatically. For public YouTube/TikTok/etc. you don't need this.</span>
+      </div>
+      <button class="ib-open" id="bannerOpen">Open Accounts</button>
+      <button class="ib-x" id="bannerDismiss" title="Dismiss">&times;</button>
+    </div>
+
+    <!-- URL input -->
+    <section class="panel input-panel">
+      <div class="url-row">
+        <input id="urlInput" type="text" spellcheck="false"
+               placeholder="Paste any video page URL — YouTube, bilibili, anime/film sites…" />
+        <button id="detectBtn" class="primary">Detect</button>
+      </div>
+      <button class="link-toggle" id="advToggle">Advanced — paste a stream / embed URL directly ▾</button>
+      <div class="advanced hidden" id="advanced">
+        <input id="manualUrl" type="text" spellcheck="false"
+               placeholder="Direct .m3u8 / embed URL (Layer 3 — when auto-detect can't reach it)" />
+        <input id="manualRef" type="text" spellcheck="false"
+               placeholder="Referer (optional — the site the stream came from)" />
+        <button id="manualBtn">Resolve manually</button>
+      </div>
+    </section>
+
+    <!-- Status / spinner -->
+    <div id="status" class="status hidden"></div>
+
+    <!-- Sources / servers -->
+    <section id="sources" class="sources"></section>
+
+    <!-- Convert -->
+    <section class="panel convert-panel">
+      <div class="panel-head"><h2>Convert a file</h2></div>
+      <div class="convert-row">
+        <button class="pick-btn" id="pickFileBtn">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+          </svg>
+          <span id="pickFileLabel">Choose a file…</span>
+        </button>
+        <label class="conv-to">to</label>
+        <div class="dropdown" id="convDropdown">
+          <button class="dd-btn" id="convFormatBtn" type="button" aria-haspopup="listbox">
+            <span class="dd-dot" id="convDot"></span>
+            <span class="dd-current" id="convCurrent">MP4</span>
+            <span class="dd-caret">▾</span>
+          </button>
+          <div class="dd-menu hidden" id="convMenu"></div>
+        </div>
+        <button class="primary" id="convertBtn" disabled>Convert</button>
+      </div>
+    </section>
+
+    <!-- Download queue -->
+    <section class="panel queue-panel">
+      <div class="panel-head">
+        <h2>Downloads</h2>
+        <button class="mini" id="clearDone">Clear finished</button>
+      </div>
+      <div id="queue" class="queue">
+        <div class="empty" id="queueEmpty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 14h4l1.5 2.5h7L17 14h4" />
+            <path d="M5.2 6.3A2 2 0 0 1 7.1 5h9.8a2 2 0 0 1 1.9 1.3L21 14v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3z" />
+          </svg>
+          <span>Detect a link above, then your downloads land here.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Log -->
+    <section class="panel log-panel">
+      <button class="panel-head log-toggle" id="logToggle">
+        <h2>Activity log</h2><span class="chev" id="logChev">▾</span>
+      </button>
+      <pre id="log" class="log hidden"></pre>
+    </section>
+  </main>
+
+  <!-- first-run welcome -->
+  <div class="welcome-overlay hidden" id="welcome">
+    <div class="welcome-card">
+      <div class="wc-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3v11" /><path d="M7.5 10 12 14.5 16.5 10" />
+          <path d="M4 17v1.5A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V17" />
+        </svg>
+      </div>
+      <h1 class="wc-title">Welcome to AINZ Clips</h1>
+      <p class="wc-lead">Paste a link to download from YouTube, TikTok, and 1,800+ other sites. Public videos need no setup at all.</p>
+
+      <div class="wc-note">
+        <svg class="wc-note-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="10.5" width="16" height="10" rx="2.2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
+        </svg>
+        <div class="wc-note-text">
+          <strong>Private or login-only sites</strong>
+          <span>Some clips need an account &mdash; Instagram, private posts, age-restricted videos. Open <b>Accounts</b> at the top-right and sign in once. Your login is stored on this device and used automatically afterwards.</span>
+        </div>
+      </div>
+
+      <div class="wc-actions">
+        <button class="ghost" id="welcomeSkip">Got it</button>
+        <button class="primary" id="welcomeOpen">Open Accounts</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- callout that points at the Accounts button -->
+  <div class="acc-callout hidden" id="accCallout">
+    <span class="cal-arrow"></span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+    <span>Sign in to sites here</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

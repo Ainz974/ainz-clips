@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Accounts</title>
+  <style>
+    :root {
+      --bg:#0b0b0d; --bar:#141417; --field:#232328; --line:rgba(255,255,255,.08);
+      --text:#f4f4f5; --dim:#a1a1aa; --accent:#34d399; --on:#042b20;
+    }
+    * { box-sizing:border-box; }
+    html,body { margin:0; height:100%; font-family:"Segoe UI",system-ui,sans-serif; background:var(--bg); color:var(--text); overflow:hidden; }
+    .bar { display:flex; align-items:center; gap:8px; padding:9px 11px; background:var(--bar); border-bottom:1px solid var(--line); }
+    .nav { display:flex; gap:4px; }
+    button { cursor:pointer; border:none; border-radius:8px; background:var(--field); color:var(--text); font:inherit; font-size:13px; padding:8px 11px; }
+    button:hover { background:#303037; }
+    button:disabled { opacity:.35; cursor:default; }
+    button.go { background:var(--accent); color:var(--on); font-weight:700; }
+    button.done { background:transparent; border:1px solid var(--line); color:var(--dim); }
+    button.done:hover { background:var(--field); color:var(--text); }
+    #addr { flex:1; background:var(--field); border:1px solid transparent; color:var(--text); border-radius:8px; padding:9px 12px; font-size:13px; outline:none; }
+    #addr:focus { border-color:var(--accent); }
+    .quick { display:flex; gap:6px; padding:7px 11px; background:var(--bar); border-bottom:1px solid var(--line); overflow-x:auto; }
+    .quick button { background:transparent; border:1px solid var(--line); color:var(--dim); font-size:12px; padding:6px 12px; white-space:nowrap; }
+    .quick button:hover { background:var(--field); color:var(--text); }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <div class="nav">
+      <button id="back" title="Back">‹</button>
+      <button id="fwd" title="Forward">›</button>
+      <button id="reload" title="Reload">⟳</button>
+    </div>
+    <input id="addr" type="text" spellcheck="false" placeholder="Type a site (e.g. instagram.com) and press Enter — your login is saved on this device" />
+    <button id="goBtn" class="go">Go</button>
+    <button id="doneBtn" class="done" title="Save logins and close">Done</button>
+  </div>
+  <div class="quick">
+    <button data-url="https://www.instagram.com/accounts/login/">Instagram</button>
+    <button data-url="https://x.com/login">X / Twitter</button>
+    <button data-url="https://www.tiktok.com/login">TikTok</button>
+    <button data-url="https://www.youtube.com">YouTube</button>
+    <button data-url="https://www.facebook.com/login">Facebook</button>
+    <button data-url="https://www.reddit.com/login">Reddit</button>
+  </div>
+
+  <script>
+    const addr = document.getElementById("addr");
+    const go = (u) => { if (u && u.trim()) window.acc.navigate(u.trim()); };
+
+    document.getElementById("goBtn").onclick = () => go(addr.value);
+    addr.addEventListener("keydown", (e) => { if (e.key === "Enter") go(addr.value); });
+    document.getElementById("back").onclick = () => window.acc.action("back");
+    document.getElementById("fwd").onclick = () => window.acc.action("forward");
+    document.getElementById("reload").onclick = () => window.acc.action("reload");
+    document.getElementById("doneBtn").onclick = () => window.acc.done();
+    document.querySelectorAll(".quick button").forEach((b) => {
+      b.onclick = () => { addr.value = b.dataset.url; go(b.dataset.url); };
+    });
+
+    // reflect the real browser's URL + back/forward availability
+    window.acc.onUrl((url, canBack, canFwd) => {
+      if (document.activeElement !== addr) addr.value = url;
+      document.getElementById("back").disabled = !canBack;
+      document.getElementById("fwd").disabled = !canFwd;
+    });
+  </script>
+</body>
+</html>

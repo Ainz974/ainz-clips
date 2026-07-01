@@ -1,0 +1,33 @@
+{
+  "name": "ainz-clips",
+  "version": "1.0.0",
+  "description": "AINZ Clips — desktop video downloader with a browser-sniff fallback for unsupported sites",
+  "main": "src/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "test:chain": "node test/test-chain.mjs",
+    "dist": "electron-builder --publish never",
+    "release": "electron-builder --publish always"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "playwright": "^1.61.1"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.higvk.ainzclips",
+    "productName": "AINZ Clips",
+    "files": ["src/**/*", "package.json"],
+    "extraResources": [{ "from": "bin", "to": "bin" }],
+    "win": { "target": "nsis" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
+    "publish": [{ "provider": "github", "owner": "Ainz974", "repo": "ainz-clips" }]
+  }
+}
