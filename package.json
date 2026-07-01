@@ -24,7 +24,7 @@
   "build": {
     "appId": "com.higvk.ainzclips",
     "productName": "AINZ Clips",
-    "files": ["src/**/*", "package.json", "node_modules/**/*"],
+    "files": ["src/**/*", "package.json", "node_modules/**/*", "build/icon.png"],
     "asarUnpack": ["node_modules/playwright-core/**", "node_modules/playwright/**"],
     "extraResources": [{ "from": "bin", "to": "bin" }],
     "win": { "target": "nsis", "icon": "build/icon.png" },
