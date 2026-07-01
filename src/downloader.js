@@ -24,9 +24,27 @@ const FINAL = /\[(?:ExtractAudio|VideoConvertor|Merger)\]/;
 
 const jobs = new Map(); // id -> child process
 
-// opts: { id, target, referer, fmt, audio, outDir, cookiesFile, onEvent }
+// strip characters Windows forbids in filenames
+function sanitize(name) {
+  return (name || "video")
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100) || "video";
+}
+// same base name + " (n)" so re-downloads never overwrite or get skipped
+function uniquePath(dir, base, ext) {
+  let p = path.join(dir, `${base}.${ext}`);
+  let n = 1;
+  while (fs.existsSync(p)) p = path.join(dir, `${base} (${n++}).${ext}`);
+  return p;
+}
+
+// opts: { id, target, referer, fmt, audio, outDir, cookiesFile, title, onEvent }
 function start(opts) {
-  const { id, target, referer, fmt, audio, outDir, cookiesFile, onEvent } = opts;
+  const { id, target, referer, fmt, audio, outDir, cookiesFile, title, onEvent } = opts;
+  const ext = audio ? "mp3" : "mp4";
+  const outPath = uniquePath(outDir, sanitize(title), ext);
   const args = [
     "--js-runtimes", "node",
     // expose YouTube's DASH 1440p/2160p/4320p formats (default clients cap at 1080p)
@@ -36,7 +54,9 @@ function start(opts) {
     "--newline",
     "--no-warnings",
     "--user-agent", UA,
-    "-o", path.join(outDir, "%(title).100B.%(ext)s"),
+    "-o", outPath,
+    // embed the poster + metadata so the file carries a cover image
+    "--embed-thumbnail", "--embed-metadata",
     // speed: download HLS/DASH fragments in parallel
     "--concurrent-fragments", "16",
   ];
@@ -53,13 +73,15 @@ function start(opts) {
     args.push("-x", "--audio-format", "mp3", "--audio-quality", "0");
     if (fmt) args.push("-f", fmt);
   } else if (fmt) {
-    args.push("-f", fmt, "--merge-output-format", "mp4");
+    // at a given resolution prefer H.264/AAC — Windows can make thumbnails for
+    // those (unlike VP9/webm), so the file shows the video frame not a player icon
+    args.push("-f", fmt, "--merge-output-format", "mp4", "-S", "res,vcodec:h264,acodec:aac");
   }
   args.push(target);
 
   const child = spawn(YTDLP, args, { windowsHide: true });
   jobs.set(id, child);
-  let lastFile = null;
+  let lastFile = outPath; // we control the exact output name now
   let phase = "downloading";
 
   const emit = (e) => onEvent({ id, ...e });

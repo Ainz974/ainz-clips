@@ -15,6 +15,7 @@ dl.start({
   referer: null,
   fmt: "bv*[height<=240]+ba/b[height<=240]",
   audio: false,
+  title: "DupTest Clip",
   outDir: path.join(ROOT, "downloads"),
   onEvent: (e) => {
     seen.add(e.type);

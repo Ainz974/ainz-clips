@@ -108,6 +108,7 @@ ipcMain.handle("download", async (_e, job) => {
     referer: job.referer,
     fmt: job.fmt,
     audio: job.audio,
+    title: job.title,
     outDir: config.outDir,
     cookiesFile: ck.cookiesFile,
     onEvent: (e) => win && win.webContents.send("download-event", e),
