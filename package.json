@@ -29,6 +29,6 @@
     "extraResources": [{ "from": "bin", "to": "bin" }],
     "win": { "target": "nsis" },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
-    "publish": [{ "provider": "github", "owner": "Ainz974", "repo": "ainz-clips" }]
+    "publish": [{ "provider": "github", "owner": "Ainz974", "repo": "ainz-clips", "releaseType": "release" }]
   }
 }
