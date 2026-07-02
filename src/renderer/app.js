@@ -267,6 +267,8 @@ function renderSources(sources) {
     card.style.setProperty("--i", i);
 
     const thumb = el("img", "thumb");
+    thumb.referrerPolicy = "no-referrer"; // TikTok/IG CDNs block hotlinked thumbnails with a referer
+    thumb.onerror = () => { thumb.style.visibility = "hidden"; };
     if (src.thumbnail) thumb.src = src.thumbnail;
     card.appendChild(thumb);
 

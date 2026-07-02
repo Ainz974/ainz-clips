@@ -35,6 +35,9 @@ function ytJson(url, { referer, signal, cookiesFile, cookiesBrowser } = {}) {
       "--js-runtimes", "node",
       // expose YouTube's DASH 1440p/2160p/4320p formats (default clients cap at 1080p)
       "--extractor-args", "youtube:player_client=tv,web_safari,android_vr",
+      // retry transient extraction failures (TikTok's first attempt often fails)
+      "--extractor-retries", "3",
+      "--retries", "3",
       "-J",
       "--no-playlist",
       "--no-warnings",
@@ -190,6 +193,9 @@ async function sniffPage(url, log = () => {}, cookiesArr = null) {
 const AUTH_ERR =
   /log ?in|sign ?in|private|empty media response|requested content is not available|members?-only|registered users|authenticat|use --cookies|age.?restrict|confirm your age|confirm you'?re not a bot|sign in to confirm|account is required|this video is unavailable/i;
 
+// sites that gate content behind login — a sniffed "raw stream" is unreliable here
+const AUTH_SITES = /(^|\.)(tiktok|instagram|facebook|fb\.watch|twitter|x)\.com$/i;
+
 function siteName(url) {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
 }
@@ -201,16 +207,30 @@ async function resolve(url, log = () => {}, opts = {}) {
   const cookiesBrowser = opts.cookiesBrowser || null;
   // browser import wins (used for sites the in-app login can't handle)
   const ck = cookiesBrowser ? { cookiesBrowser } : cookiesFile ? { cookiesFile } : {};
+  const isAuthSite = AUTH_SITES.test(siteName(url));
   let authHint = false;
-  // Layer 1
-  log("trying yt-dlp directly…");
-  try {
-    const info = await ytJson(url, ck);
-    log("yt-dlp recognized the site (Layer 1)");
-    return { kind: "direct", sources: [infoToSource(info.extractor_key || "direct", url, null, info)] };
-  } catch (e) {
-    log(`Layer 1 failed: ${e.message}`);
-    if (AUTH_ERR.test(e.message)) authHint = true;
+
+  // Layer 1 — retry for login-gated sites (TikTok often fails the first attempt,
+  // then succeeds; retrying makes the clean result appear immediately instead of
+  // the user waiting minutes and seeing an unreliable "raw stream" first).
+  const attempts = isAuthSite ? 3 : 1;
+  for (let i = 0; i < attempts; i++) {
+    log(i === 0 ? "trying yt-dlp directly…" : `retrying extraction (${i + 1}/${attempts})…`);
+    try {
+      const info = await ytJson(url, ck);
+      log("yt-dlp recognized the site (Layer 1)");
+      return { kind: "direct", sources: [infoToSource(info.extractor_key || "direct", url, null, info)] };
+    } catch (e) {
+      log(`Layer 1 attempt ${i + 1} failed: ${e.message}`);
+      if (AUTH_ERR.test(e.message) || isAuthSite) authHint = true;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+
+  // Login-gated sites: their sniffed "raw streams" are unreliable / expiring
+  // signed fragments. Never offer them — send the user to sign-in / import.
+  if (isAuthSite) {
+    return { kind: "auth", site: siteName(url), loginUrl: hostOf(url), sources: [] };
   }
 
   // Layer 2
