@@ -1,6 +1,6 @@
 // downloader.js — spawn yt-dlp for one job and stream progress back to the UI.
 
-const { spawn } = require("node:child_process");
+const { spawn, execFile } = require("node:child_process");
 const path = require("node:path");
 
 const fs = require("node:fs");
@@ -8,8 +8,48 @@ const { binDir } = require("./paths");
 const BIN = binDir();
 const YTDLP = path.join(BIN, "yt-dlp.exe");
 const FFMPEG = path.join(BIN, "ffmpeg.exe");
+const FFPROBE = path.join(BIN, "ffprobe.exe");
 const ARIA2 = path.join(BIN, "aria2c.exe");
 const HAS_ARIA2 = fs.existsSync(ARIA2);
+
+// Editors (Premiere, CapCut, DaVinci…) reject VP9/AV1 even inside an .mp4.
+// After a video download, if the codec isn't H.264, re-encode to H.264/AAC so
+// the file imports everywhere. H.264 sources (≤1080p) are left untouched (fast).
+const hms = (h, m, s) => (+h) * 3600 + (+m) * 60 + parseFloat(s);
+function ensureH264(file, emit) {
+  return new Promise((resolve) => {
+    if (!fs.existsSync(file)) return resolve(file);
+    execFile(FFPROBE, ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name,duration", "-of", "default=nw=1", file],
+      { windowsHide: true }, (err, out) => {
+        const codec = (/codec_name=(\S+)/.exec(out || "") || [])[1] || "";
+        const dur = parseFloat((/duration=([\d.]+)/.exec(out || "") || [])[1]) || 0;
+        if (!codec || /^(h264|avc)/i.test(codec)) return resolve(file); // already compatible
+        emit({ type: "phase", phase: "converting" });
+        const tmp = file.replace(/\.mp4$/i, ".h264.mp4");
+        const cc = spawn(FFMPEG, [
+          "-y", "-i", file, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+          "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", tmp,
+        ], { windowsHide: true });
+        let buf = "";
+        cc.stderr.on("data", (c) => {
+          buf += c.toString();
+          const m = /time=(\d+):(\d+):(\d+\.\d+)/.exec(buf);
+          if (m && dur) {
+            const pct = Math.min(99, (hms(m[1], m[2], m[3]) / dur) * 100);
+            emit({ type: "progress", phase: "converting", percent: pct, meta: "converting to H.264" });
+          }
+          buf = buf.slice(-2000);
+        });
+        cc.on("close", (code) => {
+          if (code === 0 && fs.existsSync(tmp)) {
+            try { fs.unlinkSync(file); fs.renameSync(tmp, file); } catch {}
+          } else { try { fs.unlinkSync(tmp); } catch {} }
+          resolve(file);
+        });
+        cc.on("error", () => resolve(file));
+      });
+  });
+}
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
@@ -137,11 +177,14 @@ function start(opts) {
     if (/^ERROR/im.test(s)) emit({ type: "log", line: s.trim() });
   });
 
-  child.on("close", (code) => {
+  child.on("close", async (code) => {
     if (outBuf) handleLine(outBuf);
     jobs.delete(id);
-    if (code === 0) emit({ type: "done", file: lastFile });
-    else if (code === null) emit({ type: "canceled" });
+    if (code === 0) {
+      // guarantee an editor-friendly H.264 file (re-encodes VP9/AV1, e.g. YouTube 4K)
+      if (!audio) await ensureH264(lastFile, emit);
+      emit({ type: "done", file: lastFile });
+    } else if (code === null) emit({ type: "canceled" });
     else emit({ type: "error", code });
   });
   child.on("error", (err) => {
