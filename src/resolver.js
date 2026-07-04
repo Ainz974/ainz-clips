@@ -74,7 +74,13 @@ function buildQualities(info) {
     if (f.acodec && f.acodec !== "none") hasAudio = true;
   }
   const sorted = [...heights].sort((a, b) => b - a);
-  const qualities = [{ label: "Best available", id: "best", fmt: "bv*+ba/b" }];
+  // "Best" prefers H.264/AAC → downloads as a ready-to-use mp4 in ONE step (no
+  // re-encode). Explicit 1440p/2160p options stay VP9/AV1 and get re-encoded.
+  const qualities = [{
+    label: "Best (ready mp4)",
+    id: "best",
+    fmt: "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/b[vcodec^=avc1]/bv*[ext=mp4]+ba/bv*+ba/b",
+  }];
   for (const h of sorted) {
     qualities.push({
       label: `${h}p`,
