@@ -65,24 +65,32 @@ function ytJson(url, { referer, signal, cookiesFile, cookiesBrowser } = {}) {
 }
 
 // Collapse yt-dlp's raw format list into clean quality choices for the UI.
+// Only offers resolutions that have a native H.264 stream, so every download is
+// a ready-to-use mp4 (works in editors/apps) with NO conversion. Falls back to
+// all resolutions only if the source has no H.264 at all.
 function buildQualities(info) {
   const fmts = Array.isArray(info.formats) ? info.formats : [];
-  const heights = new Set();
+  const h264 = new Set();
+  const any = new Set();
   let hasAudio = false;
   for (const f of fmts) {
-    if (f.vcodec && f.vcodec !== "none" && f.height) heights.add(f.height);
+    if (f.vcodec && f.vcodec !== "none" && f.height) {
+      any.add(f.height);
+      if (/^(avc|h264)/i.test(f.vcodec)) h264.add(f.height);
+    }
     if (f.acodec && f.acodec !== "none") hasAudio = true;
   }
-  const sorted = [...heights].sort((a, b) => b - a);
-  // Download the selected quality as-is (no re-encode). The downloader's
-  // format-sort still prefers H.264/AAC when available at that resolution.
-  const qualities = [{ label: "Best available", id: "best", fmt: "bv*+ba/b" }];
+  const useH264 = h264.size > 0;
+  const sorted = [...(useH264 ? h264 : any)].sort((a, b) => b - a);
+  const bestFmt = useH264
+    ? "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/b[vcodec^=avc1]/bv*+ba/b"
+    : "bv*+ba/b";
+  const qualities = [{ label: "Best available", id: "best", fmt: bestFmt }];
   for (const h of sorted) {
-    qualities.push({
-      label: `${h}p`,
-      id: `h${h}`,
-      fmt: `bv*[height<=${h}]+ba/b[height<=${h}]`,
-    });
+    const fmt = useH264
+      ? `bv*[vcodec^=avc1][height<=${h}]+ba[acodec^=mp4a]/bv*[height<=${h}]+ba/b[height<=${h}]`
+      : `bv*[height<=${h}]+ba/b[height<=${h}]`;
+    qualities.push({ label: `${h}p`, id: `h${h}`, fmt });
   }
   if (hasAudio || !sorted.length) {
     qualities.push({ label: "Audio only (mp3)", id: "audio", fmt: "ba/b", audio: true });
