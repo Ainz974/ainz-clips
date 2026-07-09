@@ -65,32 +65,22 @@ function ytJson(url, { referer, signal, cookiesFile, cookiesBrowser } = {}) {
 }
 
 // Collapse yt-dlp's raw format list into clean quality choices for the UI.
-// Only offers resolutions that have a native H.264 stream, so every download is
-// a ready-to-use mp4 (works in editors/apps) with NO conversion. Falls back to
-// all resolutions only if the source has no H.264 at all.
+// Offers EVERY available resolution (incl. 1440p/2160p). Downloads the chosen
+// quality as-is in an mp4 container, preferring H.264/AAC when available at that
+// resolution (via the downloader's format-sort). No conversion — full quality,
+// even if a 4K pick lands on VP9/AV1 that some editors won't import.
 function buildQualities(info) {
   const fmts = Array.isArray(info.formats) ? info.formats : [];
-  const h264 = new Set();
-  const any = new Set();
+  const heights = new Set();
   let hasAudio = false;
   for (const f of fmts) {
-    if (f.vcodec && f.vcodec !== "none" && f.height) {
-      any.add(f.height);
-      if (/^(avc|h264)/i.test(f.vcodec)) h264.add(f.height);
-    }
+    if (f.vcodec && f.vcodec !== "none" && f.height) heights.add(f.height);
     if (f.acodec && f.acodec !== "none") hasAudio = true;
   }
-  const useH264 = h264.size > 0;
-  const sorted = [...(useH264 ? h264 : any)].sort((a, b) => b - a);
-  const bestFmt = useH264
-    ? "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/b[vcodec^=avc1]/bv*+ba/b"
-    : "bv*+ba/b";
-  const qualities = [{ label: "Best available", id: "best", fmt: bestFmt }];
+  const sorted = [...heights].sort((a, b) => b - a);
+  const qualities = [{ label: "Best available", id: "best", fmt: "bv*+ba/b" }];
   for (const h of sorted) {
-    const fmt = useH264
-      ? `bv*[vcodec^=avc1][height<=${h}]+ba[acodec^=mp4a]/bv*[height<=${h}]+ba/b[height<=${h}]`
-      : `bv*[height<=${h}]+ba/b[height<=${h}]`;
-    qualities.push({ label: `${h}p`, id: `h${h}`, fmt });
+    qualities.push({ label: `${h}p`, id: `h${h}`, fmt: `bv*[height<=${h}]+ba/b[height<=${h}]` });
   }
   if (hasAudio || !sorted.length) {
     qualities.push({ label: "Audio only (mp3)", id: "audio", fmt: "ba/b", audio: true });
