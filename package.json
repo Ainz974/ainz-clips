@@ -1,6 +1,6 @@
 {
   "name": "ainz-clips",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "AINZ Clips — desktop video downloader with a browser-sniff fallback for unsupported sites",
   "main": "src/main.js",
   "type": "commonjs",

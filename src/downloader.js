@@ -23,6 +23,7 @@ const MERGE = /\[Merger\]\s+Merging formats into\s+"(.+)"/;
 const FINAL = /\[(?:ExtractAudio|VideoConvertor|Merger)\]/;
 
 const jobs = new Map(); // id -> child process
+const cancelled = new Set(); // ids the user cancelled (so we report "canceled" not "error")
 
 // strip characters Windows forbids in filenames
 function sanitize(name) {
@@ -64,7 +65,8 @@ function start(opts) {
   if (HAS_ARIA2) {
     args.push(
       "--downloader", "http,https:aria2c",
-      "--downloader-args", "aria2c:-x16 -s16 -k1M -j16 --summary-interval=1 --console-log-level=warn"
+      // timeouts + retries so a stalled connection recovers instead of hanging slow
+      "--downloader-args", "aria2c:-x16 -s16 -k1M -j16 --summary-interval=1 --console-log-level=warn --timeout=20 --connect-timeout=20 --max-tries=5 --retry-wait=2 --lowest-speed-limit=1K"
     );
   }
   if (cookiesBrowser) args.push("--cookies-from-browser", cookiesBrowser);
@@ -140,6 +142,7 @@ function start(opts) {
   child.on("close", (code) => {
     if (outBuf) handleLine(outBuf);
     jobs.delete(id);
+    if (cancelled.has(id)) { cancelled.delete(id); return emit({ type: "canceled" }); }
     if (code === 0) emit({ type: "done", file: lastFile });
     else if (code === null) emit({ type: "canceled" });
     else emit({ type: "error", code });
@@ -155,7 +158,16 @@ function start(opts) {
 function cancel(id) {
   const child = jobs.get(id);
   if (child) {
-    child.kill("SIGKILL");
+    cancelled.add(id);
+    // yt-dlp spawns children (aria2c, ffmpeg). On Windows killing only yt-dlp
+    // leaves aria2c downloading, so cancel does nothing — kill the whole tree.
+    try {
+      if (process.platform === "win32" && child.pid) {
+        spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
+      } else {
+        child.kill("SIGKILL");
+      }
+    } catch { try { child.kill("SIGKILL"); } catch {} }
     jobs.delete(id);
     return true;
   }
